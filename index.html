@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Habit Tracker</title>
+<style>
+*{box-sizing:border-box}
+body{
+font-family:system-ui,sans-serif;
+background:#f4f4f4;
+margin:0;
+padding:24px;
+}
+.container{
+max-width:650px;
+margin:auto;
+background:#fff;
+padding:20px;
+border-radius:12px;
+box-shadow:0 10px 30px rgba(0,0,0,.08);
+}
+h1{margin-top:0}
+.row{display:flex;gap:8px}
+input,button{
+padding:10px;
+font-size:15px;
+}
+input{flex:1}
+button{
+cursor:pointer;
+border:none;
+border-radius:6px;
+background:#222;
+color:white;
+}
+button:hover{opacity:.9}
+ul{
+padding:0;
+margin:20px 0;
+list-style:none;
+}
+li{
+display:flex;
+align-items:center;
+gap:10px;
+padding:10px;
+border:1px solid #ddd;
+border-radius:8px;
+margin-bottom:10px;
+}
+li span{
+flex:1;
+}
+.progress{
+height:10px;
+background:#ddd;
+border-radius:999px;
+overflow:hidden;
+margin:16px 0;
+}
+.progress>div{
+height:100%;
+background:#16a34a;
+width:0;
+transition:.3s;
+}
+.small{
+color:#666;
+font-size:14px;
+}
+.actions{
+display:flex;
+gap:8px;
+flex-wrap:wrap;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<h1>Habit Tracker</h1>
+
+<div class="row">
+<input id="habitInput" placeholder="New habit">
+<button onclick="addHabit()">Add</button>
+</div>
+
+<div class="progress">
+<div id="bar"></div>
+</div>
+
+<div class="small" id="stats"></div>
+
+<ul id="list"></ul>
+
+<div class="actions">
+<button onclick="exportData()">Export</button>
+<button onclick="document.getElementById('file').click()">Import</button>
+<button onclick="resetToday()">Reset Today</button>
+</div>
+
+<input id="file" type="file" hidden>
+
+</div>
+
+<script>
+const KEY="habit-tracker";
+
+const today=()=>new Date().toISOString().slice(0,10);
+
+const load=()=>{
+let data=JSON.parse(localStorage.getItem(KEY)||'{"date":"","habits":[]}');
+
+if(data.date!==today()){
+data.date=today();
+data.habits.forEach(h=>h.done=false);
+save(data);
+}
+
+return data;
+}
+
+const save=data=>localStorage.setItem(KEY,JSON.stringify(data));
+
+const state=load();
+
+function render(){
+
+const ul=document.getElementById("list");
+ul.innerHTML="";
+
+state.habits.forEach((habit,i)=>{
+
+const li=document.createElement("li");
+
+li.innerHTML=`
+<input type="checkbox" ${habit.done?"checked":""}>
+<span>${habit.name}</span>
+<button>✕</button>
+`;
+
+li.querySelector("input").onchange=e=>{
+habit.done=e.target.checked;
+update();
+};
+
+li.querySelector("button").onclick=()=>{
+state.habits.splice(i,1);
+update();
+};
+
+ul.appendChild(li);
+
+});
+
+const done=state.habits.filter(h=>h.done).length;
+const total=state.habits.length;
+const pct=total?done/total*100:0;
+
+document.getElementById("bar").style.width=pct+"%";
+document.getElementById("stats").textContent=`${done}/${total} completed`;
+}
+
+function update(){
+save(state);
+render();
+}
+
+function addHabit(){
+
+const input=document.getElementById("habitInput");
+
+const name=input.value.trim();
+
+if(!name)return;
+
+state.habits.push({
+name,
+done:false
+});
+
+input.value="";
+update();
+
+}
+
+function resetToday(){
+state.habits.forEach(h=>h.done=false);
+update();
+}
+
+function exportData(){
+
+const blob=new Blob(
+[JSON.stringify(state,null,2)],
+{type:"application/json"}
+);
+
+const a=document.createElement("a");
+a.href=URL.createObjectURL(blob);
+a.download="habit-tracker.json";
+a.click();
+
+}
+
+document.getElementById("file").onchange=e=>{
+
+const file=e.target.files[0];
+if(!file)return;
+
+const reader=new FileReader();
+
+reader.onload=()=>{
+try{
+const data=JSON.parse(reader.result);
+if(Array.isArray(data.habits)){
+state.date=today();
+state.habits=data.habits;
+update();
+}
+}catch{
+alert("Invalid JSON");
+}
+};
+
+reader.readAsText(file);
+
+};
+
+render();
+</script>
+
+</body>
+</html>
